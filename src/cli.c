@@ -41,6 +41,11 @@
 
 #define MAX_BURST_PACKETS 10
 
+//Clocks for measurements
+
+struct timeval t1, t2;
+double elapsedTime;
+
 FILE *quicly_trace_fp = NULL;
 static unsigned verbosity = 0;
 static int suppress_output = 0, send_datagram_frame = 0;
@@ -132,6 +137,7 @@ static const quicly_stream_callbacks_t server_stream_callbacks = {quicly_streamb
 
 static void dump_stats(FILE *fp, quicly_conn_t *conn)
 {
+    gettimeofday(&t2, NULL);
     quicly_stats_t stats;
 
     quicly_get_stats(conn, &stats);
@@ -142,6 +148,11 @@ static void dump_stats(FILE *fp, quicly_conn_t *conn)
             stats.num_packets.received, stats.num_packets.decryption_failed, stats.num_packets.sent, stats.num_packets.lost,
             stats.num_packets.ack_received, stats.num_packets.late_acked, stats.num_bytes.received, stats.num_bytes.sent,
             stats.rtt.smoothed);
+    elapsedTime = (t2.tv_sec - t1.tv_sec) ;    // sec to ms
+    elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000000.0;   // us to ms
+    printf("time : %f s.\n", elapsedTime);
+    printf("Goodput : %f Gbps\n",(10*8)/elapsedTime);
+    //printf("Time : ");
 }
 
 static int validate_path(const char *path)
@@ -543,7 +554,7 @@ static int run_client(int fd, struct sockaddr *sa, const char *host)
     ++next_cid.master_id;
     enqueue_requests(conn);
     send_pending(fd, conn);
-
+    gettimeofday(&t1, NULL);
     while (1) {
         fd_set readfds;
         struct timeval *tv, tvbuf;
