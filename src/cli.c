@@ -45,6 +45,7 @@
 
 struct timeval t1, t2;
 double elapsedTime;
+size_t request_size = 0;
 
 FILE *quicly_trace_fp = NULL;
 static unsigned verbosity = 0;
@@ -151,7 +152,7 @@ static void dump_stats(FILE *fp, quicly_conn_t *conn)
     elapsedTime = (t2.tv_sec - t1.tv_sec) ;    // sec to ms
     elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000000.0;   // us to ms
     printf("time : %f s.\n", elapsedTime);
-    printf("Goodput : %f Gbps\n",(10*8)/elapsedTime);
+    printf("Goodput : %f Gbps\n",((request_size/1000000000)*8)/elapsedTime);
     //printf("Time : ");
 }
 
@@ -291,7 +292,7 @@ static int send_sized_text(quicly_stream_t *stream, const char *path, int is_htt
         return 0;
     if (lastpos != strlen(path))
         return 0;
-
+    request_size = size;
     send_header(stream, is_http1, 200, "text/plain; charset=utf-8");
     static const quicly_streambuf_sendvec_callbacks_t callbacks = {flatten_sized_text};
     quicly_sendbuf_vec_t vec = {&callbacks, size, NULL};
@@ -1070,6 +1071,11 @@ static void usage(const char *cmd)
 static void push_req(const char *path, int to_file)
 {
     size_t i;
+    int lastpos;
+    if (sscanf(path, "/%zu%n", &request_size, &lastpos) != 1){
+        printf("failed to parse request\n");
+        return;
+    }
     for (i = 0; reqs[i].path != NULL; ++i)
         ;
     reqs = realloc(reqs, sizeof(*reqs) * (i + 2));
